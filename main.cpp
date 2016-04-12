@@ -6,9 +6,11 @@ using namespace std;
 
 
 //! Describes side's size of used matrix.
-const int CONFIG_MATRIX_SIZE = 1440; // 2880
-const double CONFIG_MAX_M_VAL =  10;
-const double CONFIG_MIN_M_VAL = -10;
+const int CONFIG_MATRIX_SIZE = 360; // 1440; // 2880
+const double CONFIG_MAX_M_VAL =  1000;
+const double CONFIG_MIN_M_VAL = -1000;
+const int CONFIG_STEP_TO_CHANGE_BLOCK = 2;
+const int CONFIG_NUMBER_OF_EXPERIMENTS = 10;
 
 
 
@@ -109,31 +111,68 @@ void setTimerStart()
 {
     start = chrono::high_resolution_clock::now();
 }
-void getElapsedTimerTime()
+long getElapsedTimerTime()
 {
     finish = chrono::high_resolution_clock::now();
-    cout << chrono::duration_cast<chrono::nanoseconds>(finish - start).count() << " ns" << endl;
+    return chrono::duration_cast<chrono::nanoseconds>(finish - start).count();
 }
 
 
 
 //! Implements multiplication of two matrix.
-void simpleMultM(double * A, double * B, double * C, int mSize)
+void simpleMultM(double * A, double * B, double * C, int n)
 {
-    int sizeArrFormat = mSize - 1;
+    int sizeArrFormat = n - 1;
     
-    for (int i = 0; i < mSize; i++)
+    for (int i = 0; i < n; i++)
     {
-        int lineIndex = i * mSize;
+        int lineIndex = i * n;
         
-        for (int j = 0; j < mSize; j++)
+        for (int j = 0; j < n; j++)
         {
-            cout << "Evaluating now " << i << " " << j << endl;
+            // cout << "Evaluating now " << i << " " << j << endl;
             
-            for (int k = 0; k < mSize; k++)
+            for (int k = 0; k < n; k++)
                 C[lineIndex + j] += (getValueOfSymmetricLTM(A, i, k, sizeArrFormat) * getValueOfUTM(B, k, j, sizeArrFormat));
         }
     }
+}
+
+//! Implements multiplication of two matrix using nested blocks.
+void blocksMultM(double * A, double * B, double * C, int n, int m)
+{
+    int sizeArrFormat = n - 1;
+    
+    // Iterating throw blocks.
+    for (int i = 0; i < n / m; i++)
+        for (int j = 0; j < n / m; j++)
+                
+                // Iterating throw blocks' elements.
+                for (int ii = 0; ii < m; ii++)
+                {
+                    int lineIndex = (i * m + ii) * n;
+                    
+                    for (int jj = 0; jj < m; jj++)
+                        for (int kk = 0; kk < m; kk++)
+                            
+                            C[lineIndex + (j * m + jj)] +=
+                            getValueOfSymmetricLTM(A, i * m + ii, j * m + kk, sizeArrFormat) *
+                            getValueOfUTM(B, i * m + kk, j * m + jj, sizeArrFormat);
+                }
+}
+
+
+
+//! Adds some spaces before number, if needed.
+char * outputFormatted(int number)
+{
+    if (number < 10)
+        cout << "  " << number;
+    else if (number < 100)
+        cout << " " << number;
+    else cout << number;
+    
+    return "";
 }
 
 
@@ -157,6 +196,8 @@ int main(int argc, char * argv[])
     
     
     
+    // Simple multiplication.
+    
     // Clearing result matrix before evaluations.
     fill_n(C, squareItemsCount, 0);
     
@@ -167,7 +208,44 @@ int main(int argc, char * argv[])
     simpleMultM(A, B, C, CONFIG_MATRIX_SIZE);
     
     // Getting op. time.
-    getElapsedTimerTime();
+    cout << "Simple multiplication time: " << getElapsedTimerTime() << " ns" << endl;
+    
+    
+    
+    // Blocks multiplication experiments.
+    
+    // Default blocks size to begin experiments from.
+    int blocksSize = 2;
+    
+    // Iterating throw different block sizes.
+    while (blocksSize < CONFIG_MATRIX_SIZE / 2)
+    {
+        if (CONFIG_MATRIX_SIZE % blocksSize == 0)
+        {
+            long totalTime = 0;
+            
+            for (int i = 0; i < CONFIG_NUMBER_OF_EXPERIMENTS; i++)
+            {
+                // Clearing result matrix before evaluations.
+                fill_n(C, squareItemsCount, 0);
+    
+                // Setting timer to start counting.
+                setTimerStart();
+    
+                // Making nested blocks multiplication of source matrix without any optimizations.
+                blocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
+    
+                // Adding op. time.
+                totalTime += getElapsedTimerTime();
+            }
+            
+            // Printing average eval time.
+            cout << "Average blocks multiplication time with " << outputFormatted(blocksSize) << " as a blocks size and "
+                 << CONFIG_NUMBER_OF_EXPERIMENTS << " as experiments number: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
+        }
+        
+        blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK;
+    }
     
     
     
