@@ -6,7 +6,7 @@ using namespace std;
 
 
 //! Describes side's size of used matrix.
-const int CONFIG_MATRIX_SIZE = 1440; // 2880
+const int CONFIG_MATRIX_SIZE = 360; // 1440; // 2880
 const double CONFIG_MAX_M_VAL =  10;
 const double CONFIG_MIN_M_VAL = -10;
 
@@ -118,22 +118,45 @@ void getElapsedTimerTime()
 
 
 //! Implements multiplication of two matrix.
-void simpleMultM(double * A, double * B, double * C, int mSize)
+void simpleMultM(double * A, double * B, double * C, int n)
 {
-    int sizeArrFormat = mSize - 1;
+    int sizeArrFormat = n - 1;
     
-    for (int i = 0; i < mSize; i++)
+    for (int i = 0; i < n; i++)
     {
-        int lineIndex = i * mSize;
+        int lineIndex = i * n;
         
-        for (int j = 0; j < mSize; j++)
+        for (int j = 0; j < n; j++)
         {
-            cout << "Evaluating now " << i << " " << j << endl;
+            // cout << "Evaluating now " << i << " " << j << endl;
             
-            for (int k = 0; k < mSize; k++)
+            for (int k = 0; k < n; k++)
                 C[lineIndex + j] += (getValueOfSymmetricLTM(A, i, k, sizeArrFormat) * getValueOfUTM(B, k, j, sizeArrFormat));
         }
     }
+}
+
+//! Implements multiplication of two matrix using nested blocks.
+void blocksMultM(double * A, double * B, double * C, int n, int m)
+{
+    int sizeArrFormat = n - 1;
+    
+    // Iterating throw blocks.
+    for (int i = 0; i < n / m; i++)
+        for (int j = 0; j < n / m; j++)
+                
+                // Iterating throw blocks' elements.
+                for (int ii = 0; ii < m; ii++)
+                {
+                    int lineIndex = (i * m + ii) * n;
+                    
+                    for (int jj = 0; jj < m; jj++)
+                        for (int kk = 0; kk < m; kk++)
+                            
+                            C[lineIndex + (j * m + jj)] +=
+                            getValueOfSymmetricLTM(A, i * m + ii, j * m + kk, sizeArrFormat) *
+                            getValueOfUTM(B, i * m + kk, j * m + jj, sizeArrFormat);
+                }
 }
 
 
@@ -157,6 +180,8 @@ int main(int argc, char * argv[])
     
     
     
+    // Simple multiplication.
+    
     // Clearing result matrix before evaluations.
     fill_n(C, squareItemsCount, 0);
     
@@ -167,6 +192,24 @@ int main(int argc, char * argv[])
     simpleMultM(A, B, C, CONFIG_MATRIX_SIZE);
     
     // Getting op. time.
+    cout << "Simple multiplication time: ";
+    getElapsedTimerTime();
+    
+    
+    
+    // Blocks multiplication.
+    
+    // Clearing result matrix before evaluations.
+    fill_n(C, squareItemsCount, 0);
+    
+    // Setting timer to start counting.
+    setTimerStart();
+    
+    // Making nested blocks multiplication of source matrix without any optimizations.
+    blocksMultM(A, B, C, CONFIG_MATRIX_SIZE, 10);
+    
+    // Getting op. time.
+    cout << "Blocks multiplication time: ";
     getElapsedTimerTime();
     
     
