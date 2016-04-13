@@ -1,12 +1,13 @@
 #include <iostream>
 #include <chrono>
+#include <omp.h>
 
 using namespace std;
 
 
 
 //! Describes side's size of used matrix.
-const int CONFIG_MATRIX_SIZE = 360; // 1440; // 2880
+const int CONFIG_MATRIX_SIZE = 1440; // 2880
 const double CONFIG_MAX_M_VAL =  1000;
 const double CONFIG_MIN_M_VAL = -1000;
 const int CONFIG_STEP_TO_CHANGE_BLOCK = 2;
@@ -142,23 +143,77 @@ void simpleMultM(double * A, double * B, double * C, int n)
 void blocksMultM(double * A, double * B, double * C, int n, int m)
 {
     int sizeArrFormat = n - 1;
+    int blocksCount = n / m;
     
     // Iterating throw blocks.
-    for (int i = 0; i < n / m; i++)
-        for (int j = 0; j < n / m; j++)
-                
+    for (int i = 0; i < blocksCount; i++)
+    {
+        int im = i * m;
+        
+        for (int j = 0; j < blocksCount; j++)
+        {
+            int jm = j * m;
+            
                 // Iterating throw blocks' elements.
                 for (int ii = 0; ii < m; ii++)
                 {
-                    int lineIndex = (i * m + ii) * n;
+                    int imii = im + ii;
+                    int lineIndex = (imii) * n;
                     
                     for (int jj = 0; jj < m; jj++)
+                    {
+                        int jmjj = jm + jj;
+                        
                         for (int kk = 0; kk < m; kk++)
                             
-                            C[lineIndex + (j * m + jj)] +=
-                            getValueOfSymmetricLTM(A, i * m + ii, j * m + kk, sizeArrFormat) *
-                            getValueOfUTM(B, i * m + kk, j * m + jj, sizeArrFormat);
+                            C[lineIndex + (jmjj)] +=
+                            getValueOfSymmetricLTM(A, imii, jm + kk, sizeArrFormat) *
+                            getValueOfUTM(B, im + kk, jmjj, sizeArrFormat);
+                    }
                 }
+        }
+    }
+}
+
+//! Implements multiplication of two matrix using nested blocks and also tries to make computations in parallel mode.
+void parallelizedBlocksMultM(double * A, double * B, double * C, int n, int m)
+{
+    int sizeArrFormat = n - 1;
+    int blocksCount = n / m;
+    
+    // Iterating throw blocks.
+    #pragma omp parallel for
+    for (int i = 0; i < blocksCount; i++)
+    {
+        int im = i * m;
+        
+        #pragma omp parallel for
+        for (int j = 0; j < blocksCount; j++)
+        {
+            int jm = j * m;
+            
+            // Iterating throw blocks' elements.
+            #pragma omp parallel for
+            for (int ii = 0; ii < m; ii++)
+            {
+                int imii = im + ii;
+                int lineIndex = (imii) * n;
+                
+                #pragma omp parallel for
+                for (int jj = 0; jj < m; jj++)
+                {
+                    int jmjj = jm + jj;
+                    
+                    #pragma omp parallel for
+                    for (int kk = 0; kk < m; kk++)
+                        
+                        C[lineIndex + (jmjj)] +=
+                        getValueOfSymmetricLTM(A, imii, jm + kk, sizeArrFormat) *
+                        getValueOfUTM(B, im + kk, jmjj, sizeArrFormat);
+                }
+            }
+        }
+    }
 }
 
 
@@ -195,7 +250,7 @@ int main(int argc, char * argv[])
     // Everything above work 100%.
     
     
-    
+    /*
     // Simple multiplication.
     
     // Clearing result matrix before evaluations.
@@ -209,7 +264,7 @@ int main(int argc, char * argv[])
     
     // Getting op. time.
     cout << "Simple multiplication time: " << getElapsedTimerTime() << " ns" << endl;
-    
+    */
     
     
     // Blocks multiplication experiments.
@@ -220,7 +275,7 @@ int main(int argc, char * argv[])
     // Iterating throw different block sizes.
     while (blocksSize < CONFIG_MATRIX_SIZE / 2)
     {
-        if (CONFIG_MATRIX_SIZE % blocksSize == 0)
+        if (CONFIG_MATRIX_SIZE % blocksSize == 0 && blocksSize <= 20)
         {
             long totalTime = 0;
             
@@ -240,8 +295,46 @@ int main(int argc, char * argv[])
             }
             
             // Printing average eval time.
-            cout << "Average blocks multiplication time with " << outputFormatted(blocksSize) << " as a blocks size and "
-                 << CONFIG_NUMBER_OF_EXPERIMENTS << " as experiments number: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
+            cout << outputFormatted(blocksSize) << " " << CONFIG_NUMBER_OF_EXPERIMENTS << " "
+                 << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
+        }
+        
+        blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK;
+    }
+    
+    
+    
+    // Simple parallelization experiments.
+    cout << "Using OpenMP" << endl;
+    
+    // Default blocks size to begin experiments from.
+    blocksSize = 2;
+    
+    // Iterating throw different block sizes.
+    while (blocksSize < CONFIG_MATRIX_SIZE / 2)
+    {
+        if (CONFIG_MATRIX_SIZE % blocksSize == 0 && blocksSize <= 20)
+        {
+            long totalTime = 0;
+            
+            for (int i = 0; i < CONFIG_NUMBER_OF_EXPERIMENTS; i++)
+            {
+                // Clearing result matrix before evaluations.
+                fill_n(C, squareItemsCount, 0);
+                
+                // Setting timer to start counting.
+                setTimerStart();
+                
+                // Making nested blocks multiplication of source matrix with parallel computation optimization.
+                parallelizedBlocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
+                
+                // Adding op. time.
+                totalTime += getElapsedTimerTime();
+            }
+            
+            // Printing average eval time.
+            cout << outputFormatted(blocksSize) << " " << CONFIG_NUMBER_OF_EXPERIMENTS << " "
+                 << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
         }
         
         blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK;
