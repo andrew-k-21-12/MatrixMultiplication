@@ -7,7 +7,7 @@ using namespace std;
 
 
 //! Describes side's size of used matrix.
-const int CONFIG_MATRIX_SIZE = 1440; // 2880
+const int CONFIG_MATRIX_SIZE = 360; // 1440; // 2880
 const double CONFIG_MAX_M_VAL =  1000;
 const double CONFIG_MIN_M_VAL = -1000;
 const int CONFIG_STEP_TO_CHANGE_BLOCK = 2;
@@ -154,6 +154,10 @@ void blocksMultM(double * A, double * B, double * C, int n, int m)
         {
             int jm = j * m;
             
+            for (int k = 0; k < blocksCount; k++)
+            {
+                int km = k * m;
+            
                 // Iterating throw blocks' elements.
                 for (int ii = 0; ii < m; ii++)
                 {
@@ -163,14 +167,16 @@ void blocksMultM(double * A, double * B, double * C, int n, int m)
                     for (int jj = 0; jj < m; jj++)
                     {
                         int jmjj = jm + jj;
+                        int totalLineIndex = lineIndex + jmjj;
                         
                         for (int kk = 0; kk < m; kk++)
                             
-                            C[lineIndex + (jmjj)] +=
-                            getValueOfSymmetricLTM(A, imii, jm + kk, sizeArrFormat) *
-                            getValueOfUTM(B, im + kk, jmjj, sizeArrFormat);
+                            C[totalLineIndex] +=
+                            getValueOfSymmetricLTM(A, imii, km + kk, sizeArrFormat) *
+                            getValueOfUTM(B, km + kk, jmjj, sizeArrFormat);
                     }
                 }
+            }
         }
     }
 }
@@ -182,34 +188,36 @@ void parallelizedBlocksMultM(double * A, double * B, double * C, int n, int m)
     int blocksCount = n / m;
     
     // Iterating throw blocks.
-    #pragma omp parallel for
     for (int i = 0; i < blocksCount; i++)
     {
         int im = i * m;
         
-        #pragma omp parallel for
         for (int j = 0; j < blocksCount; j++)
         {
             int jm = j * m;
             
-            // Iterating throw blocks' elements.
-            #pragma omp parallel for
-            for (int ii = 0; ii < m; ii++)
+            for (int k = 0; k < blocksCount; k++)
             {
-                int imii = im + ii;
-                int lineIndex = (imii) * n;
-                
-                #pragma omp parallel for
-                for (int jj = 0; jj < m; jj++)
+                int km = k * m;
+            
+                // Iterating throw blocks' elements.
+                for (int ii = 0; ii < m; ii++)
                 {
-                    int jmjj = jm + jj;
+                    int imii = im + ii;
+                    int lineIndex = (imii) * n;
+                
+                    for (int jj = 0; jj < m; jj++)
+                    {
+                        int jmjj = jm + jj;
+                        int totalLineIndex = lineIndex + jmjj;
                     
-                    #pragma omp parallel for
-                    for (int kk = 0; kk < m; kk++)
+                        #pragma omp parallel for
+                        for (int kk = 0; kk < m; kk++)
                         
-                        C[lineIndex + (jmjj)] +=
-                        getValueOfSymmetricLTM(A, imii, jm + kk, sizeArrFormat) *
-                        getValueOfUTM(B, im + kk, jmjj, sizeArrFormat);
+                            C[totalLineIndex] +=
+                            getValueOfSymmetricLTM(A, imii, km + kk, sizeArrFormat) *
+                            getValueOfUTM(B, km + kk, jmjj, sizeArrFormat);
+                    }
                 }
             }
         }
