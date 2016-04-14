@@ -7,7 +7,7 @@ using namespace std;
 
 
 //! Describes side's size of used matrix.
-const int CONFIG_MATRIX_SIZE = 360; // 1440; // 2880
+const int CONFIG_MATRIX_SIZE = 180; // 1440; // 2880
 const double CONFIG_MAX_M_VAL =  1000;
 const double CONFIG_MIN_M_VAL = -1000;
 const int CONFIG_STEP_TO_CHANGE_BLOCK = 2;
@@ -148,6 +148,7 @@ void blocksMultM(double * A, double * B, double * C, int n, int m)
     // Iterating throw blocks.
     for (int i = 0; i < blocksCount; i++)
     {
+        
         int im = i * m;
         
         for (int j = 0; j < blocksCount; j++)
@@ -238,6 +239,56 @@ char * outputFormatted(int number)
     return "";
 }
 
+//! Outputs provided usual matrix into the console.
+void printM(double * matrix, int size)
+{
+    for (int i = 0; i < size; ++i)
+    {
+        for (int j = 0; j < size; ++j)
+        {
+            cout << matrix[i * size + j] << " ";
+        }
+        cout << endl;
+    }
+}
+
+//! Outputs provided symmetric LT matrix into the console.
+void printSymmetricLTM(double * matrix, int size)
+{
+    for (int i = 0; i < size; ++i)
+    {
+        for (int j = 0; j < size; ++j)
+        {
+            cout << getValueOfSymmetricLTM(matrix, i, j, size - 1) << " ";
+        }
+        cout << endl;
+    }
+}
+
+//! Outputs provided UT matrix into the console.
+void printUTM(double * matrix, int size)
+{
+    for (int i = 0; i < size; ++i)
+    {
+        for (int j = 0; j < size; ++j)
+        {
+            cout << getValueOfUTM(matrix, i, j, size - 1) << " ";
+        }
+        cout << endl;
+    }
+}
+
+//! Outputs all working matrix.
+void printSourceAndResult(double * A, double * B, double * C, int size)
+{
+    cout << endl;
+    printSymmetricLTM(A, size);
+    cout << endl;
+    printUTM(B, size);
+    cout << endl;
+    printM(C, size);
+}
+
 
 
 int main(int argc, char * argv[])
@@ -258,7 +309,7 @@ int main(int argc, char * argv[])
     // Everything above work 100%.
     
     
-    /*
+    
     // Simple multiplication.
     
     // Clearing result matrix before evaluations.
@@ -272,7 +323,9 @@ int main(int argc, char * argv[])
     
     // Getting op. time.
     cout << "Simple multiplication time: " << getElapsedTimerTime() << " ns" << endl;
-    */
+    
+    // printSourceAndResult(A, B, C, CONFIG_MATRIX_SIZE);
+    
     
     
     // Blocks multiplication experiments.
@@ -283,7 +336,7 @@ int main(int argc, char * argv[])
     // Iterating throw different block sizes.
     while (blocksSize < CONFIG_MATRIX_SIZE / 2)
     {
-        if (CONFIG_MATRIX_SIZE % blocksSize == 0 && blocksSize <= 20)
+        if (CONFIG_MATRIX_SIZE % blocksSize == 0)
         {
             long totalTime = 0;
             
@@ -310,8 +363,10 @@ int main(int argc, char * argv[])
         blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK;
     }
     
+    // printSourceAndResult(A, B, C, CONFIG_MATRIX_SIZE);
     
     
+    /*
     // Simple parallelization experiments.
     cout << "Using OpenMP" << endl;
     
@@ -347,7 +402,7 @@ int main(int argc, char * argv[])
         
         blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK;
     }
-    
+    */
     
     
     // Releasing used memory.
