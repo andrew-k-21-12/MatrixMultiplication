@@ -4,4 +4,6 @@ Testing optimization skills in matrix multiplications to get the greatest perfor
 
 Your religion:
 * `g++ main.cpp -o main.o`
+* UPD: `clang-omp++ main.cpp -o main.o`
+* UPDUPD: `clang-omp++ main.cpp -fopenmp -o main.o`
 * `./main.o`
