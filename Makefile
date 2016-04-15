@@ -1,7 +1,7 @@
 # Builds all flavors and runs evaluation experiments.
 all: default fast
 	./default.o
-	./fast.o log_fast_
+	./fast.o fast
 
 # Builds executable program without any optimizations.
 default:
@@ -11,6 +11,7 @@ default:
 fast:
 	clang-omp++ main.cpp -fopenmp -o fast.o -O3
 
-# Removes all unnecessary or temp files.
+# Removes all unnecessary or temp files (including saved logs).
 clean:
 	rm *.o
+	rm -rf logs

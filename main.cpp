@@ -2,13 +2,14 @@
 #include <string>
 #include <chrono>
 #include <omp.h>
+#include <fstream>
 
 using namespace std;
 
 
 
 //! Describes side's size of used matrix.
-const int CONFIG_MATRIX_SIZE = 240; // 1440; // 2880
+const int CONFIG_MATRIX_SIZE = 1440; // 2880
 
 const double CONFIG_MAX_M_VAL =  1000000;    // range of matrix values
 const double CONFIG_MIN_M_VAL = -1000000;
@@ -17,6 +18,8 @@ const int CONFIG_INITIAL_BLOCK_SIZE = 2;     // inital block size and its change
 const int CONFIG_STEP_TO_CHANGE_BLOCK = 1;
 
 const int CONFIG_NUMBER_OF_EXPERIMENTS = 8;  // number of evals to find mean
+
+const string CONFIG_LOG_PATH = "logs/";      // where to store evaluations results
 
 
 
@@ -29,10 +32,10 @@ const int CONFIG_NUMBER_OF_EXPERIMENTS = 8;  // number of evals to find mean
 #define EXP_END totalTime += getElapsedTimerTime(); \
                 }
 
-#define BLOCK_IT_BEGIN blocksSize = CONFIG_INITIAL_BLOCK_SIZE;     \
-                       while (blocksSize < CONFIG_MATRIX_SIZE / 4) \
-                       {                                           \
-                         if (CONFIG_MATRIX_SIZE % blocksSize == 0) \
+#define BLOCK_IT_BEGIN blocksSize = CONFIG_INITIAL_BLOCK_SIZE;      \
+                       while (blocksSize < CONFIG_MATRIX_SIZE / 10) \
+                       {                                            \
+                         if (CONFIG_MATRIX_SIZE % blocksSize == 0)  \
                          {
 
 #define BLOCK_IT_END } blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK; }
@@ -513,10 +516,13 @@ void printSourceAndResult(double * A, double * B, double * C, int size)
 
 int main(int argc, char * argv[])
 {
-    // To make different logs.
-    string logFileNamePrefix = "log_default_";
+    // To make different logs creating a dir.
+    string logFileNamePrefix = "default";
     if (argc >= 2)
         logFileNamePrefix = argv[1];
+    string pathToStoreLog = CONFIG_LOG_PATH + logFileNamePrefix;
+    system(("mkdir -p " + pathToStoreLog).c_str());
+    pathToStoreLog += "/";
     
     
     
@@ -558,6 +564,13 @@ int main(int argc, char * argv[])
     // Printing average eval time into the console.
     cout << "Average time of the simple multiplication: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+    // Saving result to the log file.
+    ofstream sf;
+    sf.open(pathToStoreLog + "simple.csv");
+    sf << "Experiments,Size(n),Time(ns)\n";
+    sf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    sf.close();
+    
     // To check parallel computation results.
     double * checkC = new double[squareItemsCount];
     copy(C, C + squareItemsCount, checkC);
@@ -567,6 +580,11 @@ int main(int argc, char * argv[])
     // Blocks multiplication experiments.
     
     cout << "No parallelization multiplications" << endl;
+    
+    // Saving result to the log file.
+    ofstream bf;
+    bf.open(pathToStoreLog + "blocks.csv");
+    bf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
@@ -580,13 +598,23 @@ int main(int argc, char * argv[])
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
+    
+    bf.close();
     
     
     
     // Main lines and columns parallelization experiments.
     
     cout << "Using OpenMP pragma for main lines and columns" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmlcf;
+    bmlcf.open(pathToStoreLog + "blocks_p_main_lines_cols.csv");
+    bmlcf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
@@ -600,13 +628,23 @@ int main(int argc, char * argv[])
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bmlcf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
+    
+    bmlcf.close();
     
     
     
     // Main lines parallelization experiments.
     
     cout << "Using OpenMP pragma for main lines" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmlf;
+    bmlf.open(pathToStoreLog + "blocks_p_main_lines.csv");
+    bmlf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
@@ -620,13 +658,23 @@ int main(int argc, char * argv[])
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bmlf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
+    
+    bmlf.close();
     
     
     
     // Main columns parallelization experiments.
     
     cout << "Using OpenMP pragma for main columns" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmcf;
+    bmcf.open(pathToStoreLog + "blocks_p_main_cols.csv");
+    bmcf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
@@ -640,13 +688,23 @@ int main(int argc, char * argv[])
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bmcf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
+    
+    bmcf.close();
     
     
     
     // Nested lines parallelization experiments.
     
     cout << "Using OpenMP pragma for nested lines" << endl;
+    
+    // Saving result to the log file.
+    ofstream bnlf;
+    bnlf.open(pathToStoreLog + "blocks_p_nested_lines.csv");
+    bnlf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
@@ -660,13 +718,23 @@ int main(int argc, char * argv[])
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bnlf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
+    
+    bnlf.close();
     
     
     
     // Main lines parallelization experiments with vectorization.
     
     cout << "Using OpenMP pragma for main lines with vectorization" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmlvf;
+    bmlvf.open(pathToStoreLog + "blocks_p_main_lines_vector.csv");
+    bmlvf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
@@ -680,7 +748,12 @@ int main(int argc, char * argv[])
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bmlvf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
+    
+    bmlvf.close();
     
     
     
@@ -705,13 +778,11 @@ int main(int argc, char * argv[])
     
     
     
-    // 1. Сделать нормальный вывод расчетов в файл и подбор размеров блоков. Поставить нужный размер матрицы.
+    // 1. Определить опт. размер блока для каждого случая
     
-    // 2. Определить опт. размер блока для каждого случая
+    // 2. График зависимости времени от размера блока
     
-    // 3. График зависимости времени от размера блока
-    
-    // 4. Добавить подробнейшую информацию о спецификации компьютера
+    // 3. Добавить подробнейшую информацию о спецификации компьютера
     
     return 0;
 }
