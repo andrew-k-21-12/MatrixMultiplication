@@ -1,13 +1,15 @@
 #include <iostream>
+#include <string>
 #include <chrono>
 #include <omp.h>
+#include <fstream>
 
 using namespace std;
 
 
 
 //! Describes side's size of used matrix.
-const int CONFIG_MATRIX_SIZE = 240; // 1440; // 2880
+const int CONFIG_MATRIX_SIZE = 1440; // 2880
 
 const double CONFIG_MAX_M_VAL =  1000000;    // range of matrix values
 const double CONFIG_MIN_M_VAL = -1000000;
@@ -15,7 +17,9 @@ const double CONFIG_MIN_M_VAL = -1000000;
 const int CONFIG_INITIAL_BLOCK_SIZE = 2;     // inital block size and its change
 const int CONFIG_STEP_TO_CHANGE_BLOCK = 1;
 
-const int CONFIG_NUMBER_OF_EXPERIMENTS = 16; // number of evals to find mean
+const int CONFIG_NUMBER_OF_EXPERIMENTS = 8;  // number of evals to find mean
+
+const string CONFIG_LOG_PATH = "logs/";      // where to store evaluations results
 
 
 
@@ -28,10 +32,10 @@ const int CONFIG_NUMBER_OF_EXPERIMENTS = 16; // number of evals to find mean
 #define EXP_END totalTime += getElapsedTimerTime(); \
                 }
 
-#define BLOCK_IT_BEGIN blocksSize = CONFIG_INITIAL_BLOCK_SIZE;     \
-                       while (blocksSize < CONFIG_MATRIX_SIZE / 4) \
-                       {                                           \
-                         if (CONFIG_MATRIX_SIZE % blocksSize == 0) \
+#define BLOCK_IT_BEGIN blocksSize = CONFIG_INITIAL_BLOCK_SIZE;      \
+                       while (blocksSize < CONFIG_MATRIX_SIZE / 10) \
+                       {                                            \
+                         if (CONFIG_MATRIX_SIZE % blocksSize == 0)  \
                          {
 
 #define BLOCK_IT_END } blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK; }
@@ -208,21 +212,22 @@ void blocksMultM(double * A, double * B, double * C, int n, int m)
 }
 
 //! Implements multiplication of two matrix using nested blocks and also tries to make computations in parallel mode.
-void parallelizedBlocksMultM(double * A, double * B, double * C, int n, int m)
+void parallelizedMainBlocksMultM(double * A, double * B, double * C, int n, int m)
 {
     int sizeArrFormat = n - 1;
     int blocksCount = n / m;
     
     // Iterating throw blocks.
+    #pragma omp parallel for
     for (int i = 0; i < blocksCount; i++)
     {
         int im = i * m;
         
+        #pragma omp parallel for
         for (int j = 0; j < blocksCount; j++)
         {
             int jm = j * m;
             
-            #pragma omp parallel for
             for (int k = 0; k < blocksCount; k++)
             {
                 int km = k * m;
@@ -238,6 +243,195 @@ void parallelizedBlocksMultM(double * A, double * B, double * C, int n, int m)
                         int jmjj = jm + jj;
                         int totalLineIndex = lineIndex + jmjj;
                         
+                        // Very bad idea to make parallelizations here.
+                        for (int kk = 0; kk < m; kk++)
+                        {
+                            int kmkk = km + kk;
+                            
+                            C[totalLineIndex] +=
+                            getValueOfSymmetricLTM(A, imii, kmkk, sizeArrFormat) *
+                            getValueOfUTM(B, kmkk, jmjj, sizeArrFormat);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+//! Implements multiplication of two matrix using nested blocks and also tries to make computations in parallel mode.
+void parallelizedMainLinesBlocksMultM(double * A, double * B, double * C, int n, int m)
+{
+    int sizeArrFormat = n - 1;
+    int blocksCount = n / m;
+    
+    // Iterating throw blocks.
+    #pragma omp parallel for
+    for (int i = 0; i < blocksCount; i++)
+    {
+        int im = i * m;
+        
+        for (int j = 0; j < blocksCount; j++)
+        {
+            int jm = j * m;
+            
+            for (int k = 0; k < blocksCount; k++)
+            {
+                int km = k * m;
+                
+                // Iterating throw blocks' elements.
+                for (int ii = 0; ii < m; ii++)
+                {
+                    int imii = im + ii;
+                    int lineIndex = (imii) * n;
+                    
+                    for (int jj = 0; jj < m; jj++)
+                    {
+                        int jmjj = jm + jj;
+                        int totalLineIndex = lineIndex + jmjj;
+                        
+                        // Very bad idea to make parallelizations here.
+                        for (int kk = 0; kk < m; kk++)
+                        {
+                            int kmkk = km + kk;
+                            
+                            C[totalLineIndex] +=
+                            getValueOfSymmetricLTM(A, imii, kmkk, sizeArrFormat) *
+                            getValueOfUTM(B, kmkk, jmjj, sizeArrFormat);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+//! Implements multiplication of two matrix using nested blocks and also tries to make computations in parallel mode.
+void parallelizedMainColsBlocksMultM(double * A, double * B, double * C, int n, int m)
+{
+    int sizeArrFormat = n - 1;
+    int blocksCount = n / m;
+    
+    // Iterating throw blocks.
+    for (int i = 0; i < blocksCount; i++)
+    {
+        int im = i * m;
+        
+        #pragma omp parallel for
+        for (int j = 0; j < blocksCount; j++)
+        {
+            int jm = j * m;
+            
+            for (int k = 0; k < blocksCount; k++)
+            {
+                int km = k * m;
+                
+                // Iterating throw blocks' elements.
+                for (int ii = 0; ii < m; ii++)
+                {
+                    int imii = im + ii;
+                    int lineIndex = (imii) * n;
+                    
+                    for (int jj = 0; jj < m; jj++)
+                    {
+                        int jmjj = jm + jj;
+                        int totalLineIndex = lineIndex + jmjj;
+                        
+                        // Very bad idea to make parallelizations here.
+                        for (int kk = 0; kk < m; kk++)
+                        {
+                            int kmkk = km + kk;
+                            
+                            C[totalLineIndex] +=
+                            getValueOfSymmetricLTM(A, imii, kmkk, sizeArrFormat) *
+                            getValueOfUTM(B, kmkk, jmjj, sizeArrFormat);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+//! Implements multiplication of two matrix using nested blocks and also tries to make computations in parallel mode.
+void parallelizedNestedLinesBlocksMultM(double * A, double * B, double * C, int n, int m)
+{
+    int sizeArrFormat = n - 1;
+    int blocksCount = n / m;
+    
+    // Iterating throw blocks.
+    for (int i = 0; i < blocksCount; i++)
+    {
+        int im = i * m;
+        
+        for (int j = 0; j < blocksCount; j++)
+        {
+            int jm = j * m;
+            
+            for (int k = 0; k < blocksCount; k++)
+            {
+                int km = k * m;
+                
+                // Iterating throw blocks' elements.
+                #pragma omp parallel for
+                for (int ii = 0; ii < m; ii++)
+                {
+                    int imii = im + ii;
+                    int lineIndex = (imii) * n;
+                    
+                    for (int jj = 0; jj < m; jj++)
+                    {
+                        int jmjj = jm + jj;
+                        int totalLineIndex = lineIndex + jmjj;
+                        
+                        // Very bad idea to make parallelizations here.
+                        for (int kk = 0; kk < m; kk++)
+                        {
+                            int kmkk = km + kk;
+                            
+                            C[totalLineIndex] +=
+                            getValueOfSymmetricLTM(A, imii, kmkk, sizeArrFormat) *
+                            getValueOfUTM(B, kmkk, jmjj, sizeArrFormat);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+//! Implements multiplication of two matrix using nested blocks and also tries to make computations in parallel mode.
+void parallelizedMainLinesVectorBlocksMultM(double * A, double * B, double * C, int n, int m)
+{
+    int sizeArrFormat = n - 1;
+    int blocksCount = n / m;
+    
+    // Iterating throw blocks.
+    #pragma omp parallel for simd
+    for (int i = 0; i < blocksCount; i++)
+    {
+        int im = i * m;
+        
+        for (int j = 0; j < blocksCount; j++)
+        {
+            int jm = j * m;
+            
+            for (int k = 0; k < blocksCount; k++)
+            {
+                int km = k * m;
+                
+                // Iterating throw blocks' elements.
+                for (int ii = 0; ii < m; ii++)
+                {
+                    int imii = im + ii;
+                    int lineIndex = (imii) * n;
+                    
+                    for (int jj = 0; jj < m; jj++)
+                    {
+                        int jmjj = jm + jj;
+                        int totalLineIndex = lineIndex + jmjj;
+                        
+                        // Very bad idea to make parallelizations here.
                         for (int kk = 0; kk < m; kk++)
                         {
                             int kmkk = km + kk;
@@ -256,7 +450,7 @@ void parallelizedBlocksMultM(double * A, double * B, double * C, int n, int m)
 
 
 //! Adds some spaces before number, if needed.
-char * outputFormatted(int number)
+const char * outputFormatted(int number)
 {
     if (number < 10)
         cout << "  " << number;
@@ -322,6 +516,16 @@ void printSourceAndResult(double * A, double * B, double * C, int size)
 
 int main(int argc, char * argv[])
 {
+    // To make different logs creating a dir.
+    string logFileNamePrefix = "default";
+    if (argc >= 2)
+        logFileNamePrefix = argv[1];
+    string pathToStoreLog = CONFIG_LOG_PATH + logFileNamePrefix;
+    system(("mkdir -p " + pathToStoreLog).c_str());
+    pathToStoreLog += "/";
+    
+    
+    
     // Seeding random values.
     srand(time(NULL));
     
@@ -360,11 +564,27 @@ int main(int argc, char * argv[])
     // Printing average eval time into the console.
     cout << "Average time of the simple multiplication: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+    // Saving result to the log file.
+    ofstream sf;
+    sf.open(pathToStoreLog + "simple.csv");
+    sf << "Experiments,Size(n),Time(ns)\n";
+    sf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    sf.close();
+    
+    // To check parallel computation results.
+    double * checkC = new double[squareItemsCount];
+    copy(C, C + squareItemsCount, checkC);
+    
     
     
     // Blocks multiplication experiments.
     
     cout << "No parallelization multiplications" << endl;
+    
+    // Saving result to the log file.
+    ofstream bf;
+    bf.open(pathToStoreLog + "blocks.csv");
+    bf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
@@ -378,27 +598,175 @@ int main(int argc, char * argv[])
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
     
+    bf.close();
     
     
-    // Simple parallelization experiments.
     
-    cout << "Using OpenMP pragma for" << endl;
+    // Main lines and columns parallelization experiments.
+    
+    cout << "Using OpenMP pragma for main lines and columns" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmlcf;
+    bmlcf.open(pathToStoreLog + "blocks_p_main_lines_cols.csv");
+    bmlcf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
     
     BLOCK_IT_BEGIN
     
         EXP_START
     
             // Making nested blocks multiplication of source matrix with parallel computation optimization.
-            parallelizedBlocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
+            parallelizedMainBlocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
     
         EXP_END
             
         // Printing average eval time.
         cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
     
+        // Writing result to file.
+        bmlcf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
     BLOCK_IT_END
+    
+    bmlcf.close();
+    
+    
+    
+    // Main lines parallelization experiments.
+    
+    cout << "Using OpenMP pragma for main lines" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmlf;
+    bmlf.open(pathToStoreLog + "blocks_p_main_lines.csv");
+    bmlf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
+    
+    BLOCK_IT_BEGIN
+    
+        EXP_START
+    
+            // Making nested blocks multiplication of source matrix with parallel computation optimization.
+            parallelizedMainLinesBlocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
+    
+        EXP_END
+    
+        // Printing average eval time.
+        cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
+    
+        // Writing result to file.
+        bmlf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
+    BLOCK_IT_END
+    
+    bmlf.close();
+    
+    
+    
+    // Main columns parallelization experiments.
+    
+    cout << "Using OpenMP pragma for main columns" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmcf;
+    bmcf.open(pathToStoreLog + "blocks_p_main_cols.csv");
+    bmcf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
+    
+    BLOCK_IT_BEGIN
+    
+        EXP_START
+    
+            // Making nested blocks multiplication of source matrix with parallel computation optimization.
+            parallelizedMainColsBlocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
+    
+        EXP_END
+    
+        // Printing average eval time.
+        cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
+    
+        // Writing result to file.
+        bmcf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
+    BLOCK_IT_END
+    
+    bmcf.close();
+    
+    
+    
+    // Nested lines parallelization experiments.
+    
+    cout << "Using OpenMP pragma for nested lines" << endl;
+    
+    // Saving result to the log file.
+    ofstream bnlf;
+    bnlf.open(pathToStoreLog + "blocks_p_nested_lines.csv");
+    bnlf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
+    
+    BLOCK_IT_BEGIN
+    
+        EXP_START
+    
+            // Making nested blocks multiplication of source matrix with parallel computation optimization.
+            parallelizedNestedLinesBlocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
+    
+        EXP_END
+    
+        // Printing average eval time.
+        cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
+    
+        // Writing result to file.
+        bnlf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
+    BLOCK_IT_END
+    
+    bnlf.close();
+    
+    
+    
+    // Main lines parallelization experiments with vectorization.
+    
+    cout << "Using OpenMP pragma for main lines with vectorization" << endl;
+    
+    // Saving result to the log file.
+    ofstream bmlvf;
+    bmlvf.open(pathToStoreLog + "blocks_p_main_lines_vector.csv");
+    bmlvf << "Experiments,Size(n),Blocksize(m),Time(ns)\n";
+    
+    BLOCK_IT_BEGIN
+    
+        EXP_START
+    
+            // Making nested blocks multiplication of source matrix with parallel computation optimization.
+            parallelizedMainLinesVectorBlocksMultM(A, B, C, CONFIG_MATRIX_SIZE, blocksSize);
+    
+        EXP_END
+    
+        // Printing average eval time.
+        cout << outputFormatted(blocksSize) << " blocks, time: " << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << endl;
+    
+        // Writing result to file.
+        bmlvf << CONFIG_NUMBER_OF_EXPERIMENTS << "," << CONFIG_MATRIX_SIZE << "," << blocksSize << "," << (totalTime / CONFIG_NUMBER_OF_EXPERIMENTS) << "\n";
+    
+    BLOCK_IT_END
+    
+    bmlvf.close();
+    
+    
+    
+    // Checking if parallel computation is correct.
+    bool failure = false;
+    for (int i = 0; i < squareItemsCount; i++)
+        if (C[i] != checkC[i])
+        {
+            failure = true;
+            break;
+        }
+    if (failure)
+        cout << "Parallel computations are invalid!" << endl;
     
     
     
@@ -406,18 +774,15 @@ int main(int argc, char * argv[])
     delete[] A;
     delete[] B;
     delete[] C;
+    delete[] checkC;
     
     
     
-    // 2. Сделать нормальный вывод расчетов в файл и подбор размеров блоков. Поставить нужный размер матрицы.
+    // 1. Определить опт. размер блока для каждого случая
     
-    // 3. Распараллелить по OpenMP : перемножение блоков (каждое), параллелить операции над блоками. Многоядерность и векторизация. Также попробовать для этого опции компилятора.
+    // 2. График зависимости времени от размера блока
     
-    // 4. Определить опт. размер блока для каждого случая
-    
-    // 5. Брать несколько измерений времени и находить среднее, график зависимости времени от размера блока
-    
-    // 6. Добавить подробнейшую информацию о спецификации компьютера.
+    // 3. Добавить подробнейшую информацию о спецификации компьютера
     
     return 0;
 }

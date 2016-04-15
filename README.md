@@ -1,9 +1,7 @@
-# Matrix Multiplication
+# MatrixMultiplication
 
 Testing optimization skills in matrix multiplications to get the greatest performance!
 
-Your religion:
-* `g++ main.cpp -o main.o`
-* UPD: `clang-omp++ main.cpp -o main.o`
-* UPDUPD: `clang-omp++ main.cpp -fopenmp -o main.o`
-* `./main.o`
+See Makefile to find out what you can do with this. By default you can build all flavors and run computational tests:
+
+`make all`
