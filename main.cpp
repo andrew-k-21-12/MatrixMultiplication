@@ -698,7 +698,7 @@ int main(int argc, char * argv[])
     
     
     // Nested lines parallelization experiments.
-    
+    /*
     cout << "Using OpenMP pragma for nested lines" << endl;
     
     // Saving result to the log file.
@@ -724,7 +724,7 @@ int main(int argc, char * argv[])
     BLOCK_IT_END
     
     bnlf.close();
-    
+    */
     
     
     // Main lines parallelization experiments with vectorization.
@@ -775,14 +775,6 @@ int main(int argc, char * argv[])
     delete[] B;
     delete[] C;
     delete[] checkC;
-    
-    
-    
-    // 1. Определить опт. размер блока для каждого случая
-    
-    // 2. График зависимости времени от размера блока
-    
-    // 3. Добавить подробнейшую информацию о спецификации компьютера
     
     return 0;
 }
