@@ -16,6 +16,7 @@ const double CONFIG_MIN_M_VAL = -1000000;
 
 const int CONFIG_INITIAL_BLOCK_SIZE = 2;     // inital block size and its change
 const int CONFIG_STEP_TO_CHANGE_BLOCK = 1;
+const int CONFIG_MAX_BLOCK_SIZE = 1000;
 
 const int CONFIG_NUMBER_OF_EXPERIMENTS = 8;  // number of evals to find mean
 
@@ -32,10 +33,10 @@ const string CONFIG_LOG_PATH = "logs/";      // where to store evaluations resul
 #define EXP_END totalTime += getElapsedTimerTime(); \
                 }
 
-#define BLOCK_IT_BEGIN blocksSize = CONFIG_INITIAL_BLOCK_SIZE;      \
-                       while (blocksSize < CONFIG_MATRIX_SIZE / 10) \
-                       {                                            \
-                         if (CONFIG_MATRIX_SIZE % blocksSize == 0)  \
+#define BLOCK_IT_BEGIN blocksSize = CONFIG_INITIAL_BLOCK_SIZE;     \
+                       while (blocksSize < CONFIG_MAX_BLOCK_SIZE)  \
+                       {                                           \
+                         if (CONFIG_MATRIX_SIZE % blocksSize == 0) \
                          {
 
 #define BLOCK_IT_END } blocksSize += CONFIG_STEP_TO_CHANGE_BLOCK; }
@@ -777,4 +778,5 @@ int main(int argc, char * argv[])
     delete[] checkC;
     
     return 0;
+    
 }
